@@ -1,0 +1,2 @@
+kernel/drivers/net/wireless/bcmdhd/bcmdhd.ko
+kernel/drivers/net/wireless/intersil/hostap/hostap.ko

@@ -530,6 +530,7 @@ dtb-$(CONFIG_SOC_IMX6ULL) += \
 	imx6ull-14x14-evk-emmc.dtb \
 	imx6ull-14x14-evk-gpmi-weim.dtb \
 	imx6ull-14x14-evk-usb-certi.dtb \
+	100ask_imx6ull-14x14.dtb \
 	imx6ull-9x9-evk.dtb \
 	imx6ull-9x9-evk-btwifi.dtb \
 	imx6ull-9x9-evk-btwifi-oob.dtb \

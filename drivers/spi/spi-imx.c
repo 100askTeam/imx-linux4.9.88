@@ -17,6 +17,7 @@
  * 51 Franklin Street, Fifth Floor
  * Boston, MA  02110-1301, USA.
  */
+/* #define DEBUG */
 
 #include <linux/clk.h>
 #include <linux/completion.h>
@@ -1122,8 +1123,8 @@ static int spi_imx_transfer(struct spi_device *spi,
 
 static int spi_imx_setup(struct spi_device *spi)
 {
-	dev_dbg(&spi->dev, "%s: mode %d, %u bpw, %d hz\n", __func__,
-		 spi->mode, spi->bits_per_word, spi->max_speed_hz);
+	dev_dbg(&spi->dev, "%s: mode %d, %u bpw, %d hz, spi->cs_gpio %d\n", __func__,
+		 spi->mode, spi->bits_per_word, spi->max_speed_hz, spi->cs_gpio);
 
 	if (gpio_is_valid(spi->cs_gpio))
 		gpio_direction_output(spi->cs_gpio,
@@ -1178,6 +1179,7 @@ static int spi_imx_probe(struct platform_device *pdev)
 	struct spi_imx_data *spi_imx;
 	struct resource *res;
 	int i, ret, irq;
+	u32 num_chipselects, cs_gpio;
 
 	if (!np && !mxc_platform_info) {
 		dev_err(&pdev->dev, "can't get the platform data\n");
@@ -1200,6 +1202,7 @@ static int spi_imx_probe(struct platform_device *pdev)
 	spi_imx->devtype_data = of_id ? of_id->data :
 		(struct spi_imx_devtype_data *)pdev->id_entry->driver_data;
 
+	/* Get number of chip selects, either platform data or OF */
 	if (mxc_platform_info) {
 		master->num_chipselect = mxc_platform_info->num_chipselect;
 		master->cs_gpios = devm_kzalloc(&master->dev,
@@ -1209,7 +1212,19 @@ static int spi_imx_probe(struct platform_device *pdev)
 
 		for (i = 0; i < master->num_chipselect; i++)
 			master->cs_gpios[i] = mxc_platform_info->chipselect[i];
- 	}
+	} else {
+		if (!of_property_read_u32(np, "fsl,spi-num-chipselects", &num_chipselects))
+			master->num_chipselect = num_chipselects;
+
+		master->cs_gpios = devm_kzalloc(&master->dev,
+			sizeof(int) * master->num_chipselect, GFP_KERNEL);
+		if (!master->cs_gpios)
+			return -ENOMEM;
+
+		cs_gpio = of_get_named_gpio(np, "cs-gpio", 0);
+		for (i = 0; i < master->num_chipselect; i++)
+			master->cs_gpios[i] = cs_gpio;
+	}
 
 	spi_imx->bitbang.chipselect = spi_imx_chipselect;
 	spi_imx->bitbang.setup_transfer = spi_imx_setupxfer;

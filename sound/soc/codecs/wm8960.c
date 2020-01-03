@@ -1324,7 +1324,73 @@ static struct snd_soc_dai_driver wm8960_dai = {
 	.ops = &wm8960_dai_ops,
 	.symmetric_rates = 1,
 };
+static int wm8960_probe(struct snd_soc_codec *codec)
+{
+	struct wm8960_priv *wm8960 = snd_soc_codec_get_drvdata(codec);
+	struct wm8960_data *pdata = dev_get_platdata(codec->dev);
+	int ret;
+	int repeat_reset = 10;
 
+	wm8960->set_bias_level = wm8960_set_bias_level_out3;
+
+	if (!pdata) {
+		dev_warn(codec->dev, "No platform data supplied");
+	} else {
+		if (pdata->capless)
+			wm8960->set_bias_level = wm8960_set_bias_level_capless;
+	}
+
+	do {
+		ret = wm8960_reset(wm8960->regmap);
+		repeat_reset--;
+	} while (repeat_reset > 0 && ret != 0);
+	wm8960->set_bias_level(codec, SND_SOC_BIAS_STANDBY);
+
+	/* Latch the update bits */
+	snd_soc_update_bits(codec, WM8960_LINVOL, 0x100, 0x100);
+	snd_soc_update_bits(codec, WM8960_RINVOL, 0x100, 0x100);
+	snd_soc_update_bits(codec, WM8960_LADC, 0x100, 0x100);
+	snd_soc_update_bits(codec, WM8960_RADC, 0x100, 0x100);
+	snd_soc_update_bits(codec, WM8960_LDAC, 0x100, 0x100);
+	snd_soc_update_bits(codec, WM8960_RDAC, 0x100, 0x100);
+	snd_soc_update_bits(codec, WM8960_LOUT1, 0x100, 0x100);
+	snd_soc_update_bits(codec, WM8960_ROUT1, 0x100, 0x100);
+	snd_soc_update_bits(codec, WM8960_LOUT2, 0x100, 0x100);
+	snd_soc_update_bits(codec, WM8960_ROUT2, 0x100, 0x100);
+#if 1
+	/* other configuration */
+	snd_soc_update_bits(codec, WM8960_POWER1, 0x1ea, 0x1ea);
+	snd_soc_update_bits(codec, WM8960_POWER2, 0x1f8, 0x1f8);
+	snd_soc_update_bits(codec, WM8960_POWER3, 0xcc, 0xcc);
+	snd_soc_update_bits(codec, WM8960_LOUTMIX, 0x100, 0x100);
+	snd_soc_update_bits(codec, WM8960_ROUTMIX, 0x100, 0x100);
+	snd_soc_update_bits(codec, WM8960_POWER3, 0xc, 0xc);
+	snd_soc_update_bits(codec, WM8960_LOUT1, 0x7f, 0x7f);
+	snd_soc_update_bits(codec, WM8960_ROUT1, 0x7f, 0x7f);
+	snd_soc_update_bits(codec, WM8960_IFACE2, 0x40, 0x40);
+	snd_soc_update_bits(codec, WM8960_MONOMIX2, 0x120, 0x120);
+	snd_soc_update_bits(codec, WM8960_LINPATH, 0x1f8, 0x138);
+	snd_soc_update_bits(codec, WM8960_LINVOL, 0x19f, 0x11f);
+	snd_soc_update_bits(codec, WM8960_RINVOL, 0x19f, 0x11f);
+	snd_soc_update_bits(codec, WM8960_LOUT2, 0x1ff, 0x1ff);
+	snd_soc_update_bits(codec, WM8960_ROUT2, 0x1ff, 0x1ff);
+	snd_soc_update_bits(codec, WM8960_CLASSD3, 0x1a, 0x12);
+	snd_soc_update_bits(codec, WM8960_CLASSD1, 0xc0, 0xc0);
+	snd_soc_update_bits(codec, WM8960_ADDCTL3, (1<<3), (1<<3)); /* 100ask */
+	snd_soc_update_bits(codec, WM8960_ADDCTL2, 0x60, 0x40); /* 100ask */
+	snd_soc_update_bits(codec, WM8960_ADDCTL4, 0x0c, 0x0c); /* 100ask */
+	snd_soc_update_bits(codec, WM8960_CLASSD1, 0xc0, 0xc0); /* 100ask */
+	snd_soc_update_bits(codec, WM8960_POWER2, 0x1fb, 0x1fb); /* 100ask */
+#endif
+	snd_soc_add_codec_controls(codec, wm8960_snd_controls,
+				     ARRAY_SIZE(wm8960_snd_controls));
+	wm8960_add_widgets(codec);
+
+	return 0;
+}
+
+
+#if 0
 static int wm8960_probe(struct snd_soc_codec *codec)
 {
 	struct wm8960_priv *wm8960 = snd_soc_codec_get_drvdata(codec);
@@ -1341,6 +1407,7 @@ static int wm8960_probe(struct snd_soc_codec *codec)
 
 	return 0;
 }
+#endif
 
 static const struct snd_soc_codec_driver soc_codec_dev_wm8960 = {
 	.probe =	wm8960_probe,

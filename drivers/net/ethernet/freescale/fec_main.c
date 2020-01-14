@@ -1925,11 +1925,11 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
 	int ret;
 
 	if (enable) {
-		if (fep->clk_enet_out) {
-			ret = clk_prepare_enable(fep->clk_enet_out);
-			if (ret)
-				return ret;
-		}
+//		if (fep->clk_enet_out) {
+//			ret = clk_prepare_enable(fep->clk_enet_out);
+//			if (ret)
+//				return ret;
+//		}
 		if (fep->clk_ptp) {
 			mutex_lock(&fep->ptp_clk_mutex);
 			ret = clk_prepare_enable(fep->clk_ptp);
@@ -1952,8 +1952,8 @@ static int fec_enet_clk_enable(struct net_device *ndev, bool enable)
 				goto failed_clk_2x_txclk;
 		}
 	} else {
-		if (fep->clk_enet_out)
-			clk_disable_unprepare(fep->clk_enet_out);
+//		if (fep->clk_enet_out)
+//			clk_disable_unprepare(fep->clk_enet_out);
 		if (fep->clk_ptp) {
 			mutex_lock(&fep->ptp_clk_mutex);
 			clk_disable_unprepare(fep->clk_ptp);
@@ -3727,6 +3727,10 @@ fec_probe(struct platform_device *pdev)
 	if (ret)
 		goto failed_clk;
 
+	ret = clk_prepare_enable(fep->clk_enet_out);
+	if (ret)
+	    goto failed_clk_enet_out;
+
 	ret = clk_prepare_enable(fep->clk_ipg);
 	if (ret)
 		goto failed_clk_ipg;
@@ -3842,6 +3846,8 @@ failed_clk_ahb:
 	clk_disable_unprepare(fep->clk_ipg);
 failed_clk_ipg:
 	fec_enet_clk_enable(ndev, false);
+failed_clk_enet_out:
+	clk_disable_unprepare(fep->clk_enet_out);
 failed_clk:
 	if (of_phy_is_fixed_link(np))
 		of_phy_deregister_fixed_link(np);
@@ -3865,6 +3871,8 @@ fec_drv_remove(struct platform_device *pdev)
 	fec_ptp_stop(pdev);
 	unregister_netdev(ndev);
 	fec_enet_mii_remove(fep);
+	fec_enet_clk_enable(ndev, false);
+    clk_disable_unprepare(fep->clk_enet_out);
 	if (fep->reg_phy)
 		regulator_disable(fep->reg_phy);
 	if (of_phy_is_fixed_link(np))

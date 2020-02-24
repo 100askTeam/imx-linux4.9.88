@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Goodix GT9xx touchscreen driver
  *
  * Copyright  (C)  2016 - 2017 Goodix. Ltd.
@@ -266,7 +266,8 @@ s32 gtp_send_cfg(struct i2c_client *client)
 	dev_info(&ts->client->dev, "Driver send config\n");
 	for (retry = 0; retry < RETRY_MAX_TIMES; retry++) {
 		ret = gtp_i2c_write(client, cfg->data,
-			GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH);
+			//GTP_CONFIG_MAX_LENGTH + GTP_ADDR_LENGTH);
+			cfg->length + GTP_ADDR_LENGTH); /* 100ask */
 		if (ret > 0)
 			break;
 	}
@@ -719,7 +720,9 @@ void gtp_reset_guitar(struct i2c_client *client, s32 ms)
 	gpio_direction_output(ts->pdata->rst_gpio, 1);
 
 	usleep_range(6000, 7000);		/*  T4: > 5ms */
-	gpio_direction_input(ts->pdata->rst_gpio);
+	//gpio_direction_input(ts->pdata->rst_gpio);
+	gpio_direction_output(ts->pdata->rst_gpio, 1); /* 100ask */
+        gpio_direction_input(ts->pdata->irq_gpio); 
 
 	gtp_int_sync(ts, 50);
 	if (ts->pdata->esd_protect)
@@ -958,15 +961,19 @@ static s32 gtp_init_panel(struct goodix_ts_data *ts)
 	ret = gtp_i2c_read_dbl_check(ts->client, GTP_REG_CONFIG_DATA,
 				     &opr_buf[0], 1);
 	if (ret == SUCCESS) {
-		dev_dbg(&ts->client->dev,
+		dev_info(&ts->client->dev,
 			"Config Version: %d; IC Config Version: %d\n",
 			cfg->data[GTP_ADDR_LENGTH], opr_buf[0]);
 		flash_cfg_version = opr_buf[0];
 		drv_cfg_version = cfg->data[GTP_ADDR_LENGTH];
 
+                if (drv_cfg_version < flash_cfg_version)
+		    cfg->data[GTP_ADDR_LENGTH] = flash_cfg_version; /* 100ask */
+#if 0
 		if (flash_cfg_version < 90 &&
 		    flash_cfg_version > drv_cfg_version)
 			cfg->data[GTP_ADDR_LENGTH] = 0x00;
+#endif
 	} else {
 		dev_err(&ts->client->dev,
 			"Failed to get ic config version!No config sent\n");
@@ -1470,7 +1477,8 @@ static int gtp_request_io_port(struct goodix_ts_data *ts)
 			return -ENODEV;
 		}
 
-		gpio_direction_input(ts->pdata->irq_gpio);
+		//gpio_direction_input(ts->pdata->irq_gpio);
+                gpio_direction_output(ts->pdata->irq_gpio, 0); /* 100ask */
 		dev_info(&ts->client->dev, "Success request irq-gpio\n");
 	}
 
@@ -1487,7 +1495,8 @@ static int gtp_request_io_port(struct goodix_ts_data *ts)
 			return -ENODEV;
 		}
 
-		gpio_direction_input(ts->pdata->rst_gpio);
+		//gpio_direction_input(ts->pdata->rst_gpio);
+                gpio_direction_output(ts->pdata->rst_gpio, 1); /* 100ask */
 		dev_info(&ts->client->dev,  "Success request rst-gpio\n");
 	}
 
@@ -1919,6 +1928,7 @@ static int gtp_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	int ret = -1;
 	struct goodix_ts_data *ts;
 	struct goodix_ts_platform_data *pdata;
+	int i;
 
 	/* do NOT remove these logs */
 	dev_info(&client->dev, "GTP Driver Version: %s\n", GTP_DRIVER_VERSION);
@@ -2004,13 +2014,20 @@ static int gtp_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto exit_power_off;
 	}
 
-	gtp_reset_guitar(ts->client, 20);
+	for (i = 0; i < 6; i++)
+	{
+		dev_info(&client->dev, "try to reset and read Guitar %d", i);
+		gtp_reset_guitar(ts->client, 20); /* 100ask */
 
-	ret = gtp_i2c_test(client);
+		ret = gtp_i2c_test(client);
+		if (!ret)
+			break;
+	}
+
 	if (ret) {
 		dev_err(&client->dev, "Failed communicate with IC use I2C\n");
 		goto exit_free_io_port;
-	}
+	}	
 
 	dev_info(&client->dev, "I2C Addr is %x\n", client->addr);
 

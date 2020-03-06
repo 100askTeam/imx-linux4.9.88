@@ -1221,9 +1221,11 @@ static int spi_imx_probe(struct platform_device *pdev)
 		if (!master->cs_gpios)
 			return -ENOMEM;
 
-		cs_gpio = of_get_named_gpio(np, "cs-gpio", 0);
 		for (i = 0; i < master->num_chipselect; i++)
+        {
+		    cs_gpio = of_get_named_gpio(np, "cs-gpio", i);
 			master->cs_gpios[i] = cs_gpio;
+        }
 	}
 
 	spi_imx->bitbang.chipselect = spi_imx_chipselect;
